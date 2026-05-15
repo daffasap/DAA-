@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maze Escape Game - BFS & DFS</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    canvas {
+      margin-top: 20px;
+      border: 3px solid white;
+      background: #222;
+    }
+
+    .info {
+      margin-top: 15px;
+      display: flex;
+      gap: 20px;
+      font-size: 18px;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background: #00b894;
+      color: white;
+    }
+
+    button:hover {
+      background: #00a383;
+    }
+  </style>
+</head>
+<body>
+  <h1>Maze Escape Game</h1>
+
+  <div class="info">
+    <div><strong>Algorithm:</strong> DFS + BFS</div>
+    <div><strong>Controls:</strong> Arrow Keys</div>
+  </div>
+
+  <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+  <button onclick="showHint()">Show BFS Shortest Path</button>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const rows = 15;
+    const cols = 15;
+    const cellSize = canvas.width / cols;
+
+    let maze = [];
+    let player = { x: 0, y: 0 };
+    let exit = { x: cols - 1, y: rows - 1 };
+    let shortestPath = [];
+
+    class Cell {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.visited = false;
+        this.walls = {
+          top: true,
+          right: true,
+          bottom: true,
+          left: true
+        };
+      }
+
+      draw() {
+        const x = this.x * cellSize;
+        const y = this.y * cellSize;
+
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+
+        if (this.walls.top) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + cellSize, y);
+          ctx.stroke();
+        }
+
+        if (this.walls.right) {
+          ctx.beginPath();
+          ctx.moveTo(x + cellSize, y);
+          ctx.lineTo(x + cellSize, y + cellSize);
+          ctx.stroke();
+        }
+
+        if (this.walls.bottom) {
+          ctx.beginPath();
+          ctx.moveTo(x + cellSize, y + cellSize);
+          ctx.lineTo(x, y + cellSize);
+          ctx.stroke();
+        }
+
+        if (this.walls.left) {
+          ctx.beginPath();
+          ctx.moveTo(x, y + cellSize);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function initializeMaze() {
+      maze = [];
+      for (let y = 0; y < rows; y++) {
+        let row = [];
+        for (let x = 0; x < cols; x++) {
+          row.push(new Cell(x, y));
+        }
+        maze.push(row);
+      }
+
+      generateMazeDFS(0, 0);
+    }
+
+    function generateMazeDFS(x, y) {
+      const current = maze[y][x];
+      current.visited = true;
+
+      const directions = shuffle([
+        [0, -1, 'top', 'bottom'],
+        [1, 0, 'right', 'left'],
+        [0, 1, 'bottom', 'top'],
+        [-1, 0, 'left', 'right']
+      ]);
+
+      for (const [dx, dy, wall, opposite] of directions) {
+        const nx = x + dx;
+        const ny = y + dy;
+
+        if (nx >= 0 && ny >= 0 && nx < cols && ny < rows) {
+          const next = maze[ny][nx];
+
+          if (!next.visited) {
+            current.walls[wall] = false;
+            next.walls[opposite] = false;
+
+            generateMazeDFS(nx, ny);
+          }
+        }
+      }
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function drawMaze() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let row of maze) {
+        for (let cell of row) {
+          cell.draw();
+        }
+      }
+
+      drawExit();
+      drawPlayer();
+      drawPath();
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = '#00ff00';
+      ctx.beginPath();
+      ctx.arc(
+        player.x * cellSize + cellSize / 2,
+        player.y * cellSize + cellSize / 2,
+        cellSize / 4,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
+
+    function drawExit() {
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(
+        exit.x * cellSize + 10,
+        exit.y * cellSize + 10,
+        cellSize - 20,
+        cellSize - 20
+      );
+    }
+
+    function drawPath() {
+      ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+
+      for (const pos of shortestPath) {
+        ctx.fillRect(
+          pos.x * cellSize + 5,
+          pos.y * cellSize + 5,
+          cellSize - 10,
+          cellSize - 10
+        );
+      }
+    }
+
+    function movePlayer(dx, dy) {
+      const current = maze[player.y][player.x];
+
+      if (dx === -1 && !current.walls.left) player.x--;
+      if (dx === 1 && !current.walls.right) player.x++;
+      if (dy === -1 && !current.walls.top) player.y--;
+      if (dy === 1 && !current.walls.bottom) player.y++;
+
+      checkWin();
+      drawMaze();
+    }
+
+    function checkWin() {
+      if (player.x === exit.x && player.y === exit.y) {
+        setTimeout(() => {
+          alert('Congratulations! You escaped the maze!');
+          restartGame();
+        }, 100);
+      }
+    }
+
+    function restartGame() {
+      player = { x: 0, y: 0 };
+      shortestPath = [];
+      initializeMaze();
+      drawMaze();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      switch (e.key) {
+        case 'ArrowUp':
+          movePlayer(0, -1);
+          break;
+        case 'ArrowDown':
+          movePlayer(0, 1);
+          break;
+        case 'ArrowLeft':
+          movePlayer(-1, 0);
+          break;
+        case 'ArrowRight':
+          movePlayer(1, 0);
+          break;
+      }
+    });
+
+    function showHint() {
+      shortestPath = bfsShortestPath();
+      drawMaze();
+    }
+
+    function bfsShortestPath() {
+      const queue = [];
+      const visited = Array(rows)
+        .fill(null)
+        .map(() => Array(cols).fill(false));
+
+      const parent = Array(rows)
+        .fill(null)
+        .map(() => Array(cols).fill(null));
+
+      queue.push(player);
+      visited[player.y][player.x] = true;
+
+      while (queue.length > 0) {
+        const current = queue.shift();
+
+        if (current.x === exit.x && current.y === exit.y) {
+          break;
+        }
+
+        const cell = maze[current.y][current.x];
+
+        const directions = [
+          { dx: 0, dy: -1, wall: 'top' },
+          { dx: 1, dy: 0, wall: 'right' },
+          { dx: 0, dy: 1, wall: 'bottom' },
+          { dx: -1, dy: 0, wall: 'left' }
+        ];
+
+        for (const dir of directions) {
+          if (!cell.walls[dir.wall]) {
+            const nx = current.x + dir.dx;
+            const ny = current.y + dir.dy;
+
+            if (
+              nx >= 0 && ny >= 0 &&
+              nx < cols && ny < rows &&
+              !visited[ny][nx]
+            ) {
+              visited[ny][nx] = true;
+              parent[ny][nx] = current;
+              queue.push({ x: nx, y: ny });
+            }
+          }
+        }
+      }
+
+      let path = [];
+      let current = exit;
+
+      while (current && !(current.x === player.x && current.y === player.y)) {
+        path.push(current);
+        current = parent[current.y][current.x];
+      }
+
+      return path;
+    }
+
+    initializeMaze();
+    drawMaze();
+  </script>
+</body>
+</html>
